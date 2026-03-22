@@ -1,3 +1,9 @@
+import os
+import json
+from dotenv import load_dotenv
+
+load_dotenv()
+token_telegram = os.getenv("BOT_TOKEN")
 import json
 import time
 from datetime import datetime
@@ -13,39 +19,61 @@ TELEGRAM_TOKEN = "8466443792:AAGw7c2o_yeB5muEOqMYYHgyBiunXAlP-LI"
 CHAT_ID = "-1003728999288"
 URL_DEALS = "https://www.amazon.it/deals"
 
+
 def carica_inviati():
     try:
-        with open(FILE_INVIATI, "r") as f: return json.load(f)
-    except: return []
+        with open(FILE_INVIATI, "r") as f:
+            return json.load(f)
+    except:
+        return []
+
 
 def salva_inviati(lista):
-    with open(FILE_INVIATI, "w") as f: json.dump(lista, f)
+    with open(FILE_INVIATI, "w") as f:
+        json.dump(lista, f)
+
 
 def invia_telegram_foto(caption, img_url):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
-    data = {"chat_id": CHAT_ID, "photo": img_url, "caption": caption, "parse_mode": "HTML"}
+    data = {
+        "chat_id": CHAT_ID,
+        "photo": img_url,
+        "caption": caption,
+        "parse_mode": "HTML",
+    }
     try:
         requests.post(url, data=data)
     except Exception as e:
         print(f"❌ Errore invio Telegram: {e}")
 
+
 def get_dettagli_prodotto(driver, asin):
     """Entra nella pagina prodotto per recuperare Prezzo Reale, Prezzo Vecchio e Coupon"""
     try:
         driver.get(f"https://www.amazon.it/dp/{asin}?tag={AFFILIATE_TAG}")
-        time.sleep(4) # Un po' di attesa per caricare i prezzi dinamici
-        
+        time.sleep(4)  # Un po' di attesa per caricare i prezzi dinamici
+
         # Recupero Prezzo Attuale
         try:
-            p_whole = driver.find_element(By.CSS_SELECTOR, "span.a-price-whole").text.strip()
-            p_frac = driver.find_element(By.CSS_SELECTOR, "span.a-price-fraction").text.strip()
+            p_whole = driver.find_element(
+                By.CSS_SELECTOR, "span.a-price-whole"
+            ).text.strip()
+            p_frac = driver.find_element(
+                By.CSS_SELECTOR, "span.a-price-fraction"
+            ).text.strip()
             prezzo_att = f"{p_whole},{p_frac}€"
         except:
             prezzo_att = "N/D"
 
         # Recupero Prezzo Vecchio (Barrato / Consigliato)
         try:
-            prezzo_vec = driver.find_element(By.CSS_SELECTOR, "span.a-text-price span.a-offscreen").get_attribute("innerText").strip()
+            prezzo_vec = (
+                driver.find_element(
+                    By.CSS_SELECTOR, "span.a-text-price span.a-offscreen"
+                )
+                .get_attribute("innerText")
+                .strip()
+            )
         except:
             prezzo_vec = ""
 
@@ -55,11 +83,13 @@ def get_dettagli_prodotto(driver, asin):
             page_content = driver.page_source.lower()
             if "coupon" in page_content or "risparmia" in page_content:
                 ha_coupon = True
-        except: pass
-            
+        except:
+            pass
+
         return prezzo_att, prezzo_vec, ha_coupon
     except:
         return "N/D", "", False
+
 
 def get_offerte():
     inviati = carica_inviati()
@@ -68,8 +98,10 @@ def get_offerte():
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--window-size=1920,1080")
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-    
+    options.add_argument(
+        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+
     driver = webdriver.Chrome(options=options)
 
     try:
@@ -88,10 +120,18 @@ def get_offerte():
 
             # Dati base dalla griglia
             try:
-                titolo = item.find_element(By.CSS_SELECTOR, "span.a-truncate-full.a-offscreen").get_attribute("innerText").strip()
+                titolo = (
+                    item.find_element(
+                        By.CSS_SELECTOR, "span.a-truncate-full.a-offscreen"
+                    )
+                    .get_attribute("innerText")
+                    .strip()
+                )
                 img_url = item.find_element(By.TAG_NAME, "img").get_attribute("src")
-                sconto_raw = item.find_element(By.CSS_SELECTOR, "div[role='presentation'] span.a-size-mini").text
-                percentuale = int(''.join(filter(str.isdigit, sconto_raw)))
+                sconto_raw = item.find_element(
+                    By.CSS_SELECTOR, "div[role='presentation'] span.a-size-mini"
+                ).text
+                percentuale = int("".join(filter(str.isdigit, sconto_raw)))
             except:
                 continue
 
@@ -106,7 +146,11 @@ def get_offerte():
             try:
                 # Trasformiamo in numeri per il confronto (es: "27,99€" -> 27.99)
                 n_att = float(prezzo_att.replace("€", "").replace(",", ".").strip())
-                n_vec = float(prezzo_vec.replace("€", "").replace(",", ".").strip()) if prezzo_vec else 0
+                n_vec = (
+                    float(prezzo_vec.replace("€", "").replace(",", ".").strip())
+                    if prezzo_vec
+                    else 0
+                )
             except:
                 n_att, n_vec = 0, 0
 
@@ -119,7 +163,9 @@ def get_offerte():
             # Messaggio Finale
             link_aff = f"https://www.amazon.it/dp/{asin}?tag={AFFILIATE_TAG}"
             bomba = "<b>💣💣 BOMBAAA 💣💣</b>\n\n" if percentuale >= 40 else ""
-            avviso_coupon = "\n🎟 <b>ATTIVA IL COUPON IN PAGINA!</b>" if ha_coupon else ""
+            avviso_coupon = (
+                "\n🎟 <b>ATTIVA IL COUPON IN PAGINA!</b>" if ha_coupon else ""
+            )
 
             caption = (
                 f"{bomba}🛒 {titolo}\n\n"
@@ -131,14 +177,15 @@ def get_offerte():
             invia_telegram_foto(caption, img_url)
             inviati.append(asin)
             salva_inviati(inviati)
-            
+
             print(f"✅ INVIATO: {asin} ({prezzo_att})")
-            break # Ne invia uno per ciclo
+            break  # Ne invia uno per ciclo
 
     except Exception as e:
         print(f"❌ Errore: {e}")
     finally:
         driver.quit()
+
 
 # --- LOOP ---
 if __name__ == "__main__":
@@ -146,4 +193,4 @@ if __name__ == "__main__":
         get_offerte()
         # Domani ricordati di rimettere 3600 (1 ora) al posto di 10
         print("⏱ Attesa 1 ora..")
-        time.sleep(3600) # attesa di un ora 
+        time.sleep(3600)  # attesa di un ora
