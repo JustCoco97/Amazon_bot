@@ -1,3 +1,5 @@
 __pycache__
 apiAmazon.csv
 .env
+.env.*
+!.env.example
